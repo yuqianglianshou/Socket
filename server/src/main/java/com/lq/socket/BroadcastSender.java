@@ -48,7 +48,7 @@ public class BroadcastSender {
         DatagramPacket sendPack = new DatagramPacket(msg, msg.length, inetAddr, port);
 
         client.send(sendPack);
-        System.out.println("send msg complete，msg == " + message);
+        System.out.println("服务端循环发送udp广播 ==port "+port +"  mes ==  " + message);
         client.close();
     }
 

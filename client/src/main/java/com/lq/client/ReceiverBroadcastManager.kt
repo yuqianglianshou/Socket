@@ -92,14 +92,14 @@ object ReceiverBroadcastManager {
             server!!.bind(InetSocketAddress(ControlConstants.MASTER_LISTEN_PORT))
         }
         println("---------------------------------")
-        println("服务端 start listen ......port == ${ControlConstants.MASTER_LISTEN_PORT}")
+        println("客户端 start listen ......port == ${ControlConstants.MASTER_LISTEN_PORT}")
         println("---------------------------------")
         while (needListen) {
             server!!.receive(receive)
             val recvByte = Arrays.copyOfRange(receive.data, 0, receive.length)
             val receiveMsg = String(recvByte)
 
-            println("服务端 收到 receive msg:$receiveMsg")
+            println("客户端 收到 udp 广播信息 :$receiveMsg")
             println("客户端:" + receive.address.toString() + ":" + receive.port)
             //{"type":"server","port":6000,"deviceName":"ONEPLUS A6010"}
 
@@ -107,7 +107,7 @@ object ReceiverBroadcastManager {
             val senderIp = receive.address.hostAddress
             val localIP = IpUtil.getHostIP()
             if (senderIp == localIP) {
-                println("服务端收到自己的消息 myself,ignore")
+                println("客户端收到自己的消息 myself,ignore")
                 continue
             }
             if(receiveMsg.contains("server")){
