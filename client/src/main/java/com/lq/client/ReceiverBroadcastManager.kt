@@ -110,15 +110,11 @@ object ReceiverBroadcastManager {
                 println("客户端收到自己的消息 myself,ignore")
                 continue
             }
-            if(receiveMsg.contains("server")){
-                //  receiveMsg  ==  {"type":"server","port":6000,"deviceName":"ONEPLUS A6010"}
-                //信息识别是否是服务端发送过来的信息，如果是 回调
-                handler.post {
-                    callback?.onReceive(senderIp, receiveMsg)
-                }
-                //停止监听
-                needListen = false
+
+            handler.post {
+                callback?.onReceive(senderIp, receiveMsg)
             }
+
 
         }
         server!!.disconnect()

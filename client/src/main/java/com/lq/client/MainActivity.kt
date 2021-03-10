@@ -6,17 +6,17 @@ import android.widget.CompoundButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
-import java.io.IOException
-import java.net.DatagramPacket
 import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.SocketException
 
 /**
  * 客户端
  */
 private const val TAG = "client"
 
+/**
+ * 1，UDP监听固定端口号（7022）信息，收到服务端信息，解析出服务端地址
+ * 2，拿到服务端地址和服务端指定的端口号（7017），建立udp连接通信，实现客户端给服务端发消息
+ */
 class MainActivity : AppCompatActivity() {
 
     /**
@@ -24,6 +24,9 @@ class MainActivity : AppCompatActivity() {
      */
     val datagramSocket = DatagramSocket()
     val stringBuilder = StringBuilder()
+
+    //连接管理 对象
+    val clientSocketManager = ClientSocketManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,64 +41,46 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initData() {
+        //设置各个状态监听
+        clientSocketManager.setClientSocketManagerCallback(object :
+            ClientSocketManager.ClientSocketManagerCallback {
+            override fun onReceiverBroadcastError(errMsg: String?) {
+
+            }
+
+            override fun onReceiverMessage(senderIp: String?, message: String?) {
+                Log.i(TAG, "收到服务端消息，服务端IP == $senderIp")
+                Log.i(TAG, "收到服务端消息，服务端mes == $message")
+            }
+
+            override fun onConnectSocket(socket: DatagramSocket) {
+
+            }
+
+            override fun onLog(message: String) {
+                runOnUiThread {
+                    stringBuilder.append("\n $message")
+                    textView2.text = stringBuilder.toString()
+                }
+
+            }
+        })
 
         cb_start.text = "监听端口 ${ControlConstants.MASTER_LISTEN_PORT} 的数据"
 
         cb_start.setOnCheckedChangeListener { compoundButton: CompoundButton, b: Boolean ->
             if (b) {
 
-
-//                ClientSocketManager.startConnectServer()
-
+                clientSocketManager.startConnectServer()
 
                 compoundButton.text = "开启监听端口 ${ControlConstants.MASTER_LISTEN_PORT} 的数据"
 
                 stringBuilder.append("\n开启监听端口 ${ControlConstants.MASTER_LISTEN_PORT} 的数据")
                 textView2.text = stringBuilder.toString()
 
-                ReceiverBroadcastManager.setBroadcastReceiveCallback(object :
-                    ReceiverBroadcastManager.BroadcastReceiverCallback {
-                    override fun onError(errMsg: String?) {
-                        compoundButton.text =
-                            "端口 ${ControlConstants.MASTER_LISTEN_PORT} 的数据 错误 $errMsg"
-                        ReceiverBroadcastManager.stop()
-                    }
-
-                    override fun onReceive(senderIp: String?, message: String?) {
-
-                        stringBuilder.append("\n收到端口 ${ControlConstants.MASTER_LISTEN_PORT}数据，消息为 $message")
-                        stringBuilder.append("\n收到端口 ${ControlConstants.MASTER_LISTEN_PORT}数据，主机地址为 $senderIp")
-                        textView2.text = stringBuilder.toString()
-
-                        compoundButton.text =
-                            "收到端口 ${ControlConstants.MASTER_LISTEN_PORT}数据，主机地址为 $senderIp"
-                        Log.i(TAG, "onReceive: senderIp == $senderIp")
-                        Log.i(TAG, "onReceive: message == $message")
-                        //{"type":"server","port":6000,"deviceName":"ONEPLUS A6010"}
-
-                        Thread {
-                            datagramSocket.connect(
-                                InetAddress.getByName(senderIp),
-                                ControlConstants.SERVER_SOCKET_PORT
-                            ) // 连接指定服务器和端口
-                            Log.i(TAG, "udp 连接状态 ds.isConnected ==  " + datagramSocket.isConnected)
-                        }.start()
-
-
-                        //接收数据线程
-                        receiveUDP(datagramSocket)
-
-
-                    }
-
-                })
-
-                //开启循环广播发送，当建立连接后需关闭
-                ReceiverBroadcastManager.start()
-
             } else {
                 cb_start.text = "关闭监听端口 ${ControlConstants.MASTER_LISTEN_PORT} 的数据"
-//                ReceiverBroadcastManager.stop()
+                clientSocketManager.disconnectSocket()
             }
         }
 
@@ -105,13 +90,7 @@ class MainActivity : AppCompatActivity() {
             if (!et_message.text.toString().isNullOrEmpty()) {
                 Log.i(TAG, "数据发送 " + et_message.text.toString())
 
-                //发送
-                val data = et_message.text.toString().toByteArray()
-                var packet = DatagramPacket(data, data.size)
-                datagramSocket.send(packet)
-
-                stringBuilder.append("\n发送了数据：" + et_message.text.toString())
-                textView2.setText(stringBuilder.toString())
+                clientSocketManager.sendMessage(et_message.text.toString())
 
             } else {
                 Log.i(TAG, "数据空")
@@ -122,48 +101,11 @@ class MainActivity : AppCompatActivity() {
         /**
          * 清空数据
          */
-        btn_clear.setOnClickListener{
+        btn_clear.setOnClickListener {
             stringBuilder.delete(0, stringBuilder.length)
             textView2.text = stringBuilder
         }
 
     }
 
-    /**
-     * 接收连接后的消息
-     */
-    fun receiveUDP(rSocket: DatagramSocket) {
-        Thread {
-            try {
-                rSocket.broadcast = true
-            } catch (e: SocketException) {
-                e.printStackTrace()
-            }
-            while (true) {
-                try {
-                    val buffer = ByteArray(1024)
-                    val dp = DatagramPacket(buffer, buffer.size)
-                    rSocket!!.receive(dp)
-                    var mes = String(
-                        dp.data,
-                        0,
-                        dp.length
-                    )
-
-                    runOnUiThread {
-                        stringBuilder.append("\n收到服务端消息：$mes")
-                        textView2.text = stringBuilder.toString()
-                    }
-
-                    Log.i(TAG, "receiveUDP: " + mes + "   address = " + dp.address)
-
-                } catch (e: SocketException) {
-                    e.printStackTrace()
-                } catch (e: IOException) {
-                    e.printStackTrace()
-                }
-            }
-        }.start()
-        Log.i(TAG, "UDP receiver started")
-    }
 }
